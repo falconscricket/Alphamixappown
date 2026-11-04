@@ -1,7 +1,6 @@
 package com.alpha.browser
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -9,10 +8,11 @@ import android.webkit.*
 import android.widget.*
 import android.view.View
 import android.graphics.Color
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
     private lateinit var address: EditText
     private var pendingRequest: PermissionRequest? = null
