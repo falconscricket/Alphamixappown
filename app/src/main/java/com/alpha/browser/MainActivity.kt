@@ -277,7 +277,7 @@ class MainActivity : ComponentActivity() {
         }
         AlertDialog.Builder(this)
             .setTitle("Saved pages")
-            .setItems(items.map { it.getOrElse(1) { it[0] } }.toTypedArray()) { _, which ->
+            .setItems(items.map { parts -> parts.getOrElse(1) { parts[0] } }.toTypedArray()) { _, which ->
                 currentWeb().loadUrl(items[which][0])
             }
             .setNegativeButton("Close", null)
