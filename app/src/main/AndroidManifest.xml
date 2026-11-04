@@ -3,7 +3,8 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/AlphaTheme"
         android:label="ALPHA Browser"
         android:usesCleartextTraffic="false">
         <activity

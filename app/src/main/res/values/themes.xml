@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AlphaTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">#00E676</item>
+        <item name="android:colorPrimaryDark">#080C0A</item>
+        <item name="android:colorAccent">#00E676</item>
+        <item name="android:windowBackground">#080C0A</item>
+        <item name="android:statusBarColor">#080C0A</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:textColorPrimary">#E8F5EE</item>
+        <item name="android:textColorHint">#6B7D74</item>
+    </style>
+</resources>

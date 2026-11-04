@@ -1,7 +1,10 @@
 package com.alpha.browser
 
 import android.Manifest
+import android.app.AlertDialog
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
@@ -11,28 +14,34 @@ import android.view.inputmethod.EditorInfo
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var web: WebView
+    private val tabs = mutableListOf<WebView>()
+    private var current = 0
     private lateinit var address: EditText
-    private lateinit var desktopBtn: Button
-    private var desktopMode = false
-    private var mobileUa = ""
+    private lateinit var starBtn: Button
+    private lateinit var tabBar: LinearLayout
+    private lateinit var container: FrameLayout
+    private lateinit var prefs: SharedPreferences
     private var pendingRequest: PermissionRequest? = null
 
-    private val desktopUa =
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    private val homeUrl = "https://web.whatsapp.com/"
+    private val homeUrl = "https://www.google.com/"
+    private val bgColor = Color.rgb(8, 12, 10)
+    private val textMuted = Color.rgb(107, 125, 116)
+    private val accent = Color.rgb(0, 230, 118)
+    private val textMain = Color.rgb(232, 245, 238)
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -45,17 +54,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val bg = Color.rgb(8, 12, 10)
-        window.statusBarColor = bg
-        window.navigationBarColor = Color.BLACK
+        prefs = getSharedPreferences("alpha_browser", MODE_PRIVATE)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
-            setPadding(dp(8), dp(8), dp(8), 0)
+            setBackgroundColor(bgColor)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
         }
 
-        // Address bar
+        // Address bar: rounded field + bookmark star + GO
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -63,44 +70,68 @@ class MainActivity : ComponentActivity() {
         address = EditText(this).apply {
             setSingleLine(true)
             hint = "Search or enter address"
-            setHintTextColor(Color.GRAY)
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(30, 38, 34))
-            setPadding(dp(12), 0, dp(12), 0)
+            setHintTextColor(textMuted)
+            setTextColor(textMain)
+            background = getDrawable(R.drawable.bg_field)
+            setPadding(dp(16), 0, dp(16), 0)
+            textSize = 14f
             imeOptions = EditorInfo.IME_ACTION_GO
             setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_GO) {
-                    loadAddress()
-                    true
-                } else false
+                if (actionId == EditorInfo.IME_ACTION_GO) { loadAddress(); true } else false
             }
-            setText(homeUrl)
         }
         bar.addView(address, LinearLayout.LayoutParams(0, dp(46), 1f))
-        bar.addView(button("GO") { loadAddress() }, LinearLayout.LayoutParams(WRAP_CONTENT, dp(46)))
-        root.addView(bar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(6) })
+        starBtn = button("☆", 18f) { toggleBookmark() }
+        bar.addView(starBtn, LinearLayout.LayoutParams(dp(46), dp(46)).apply { setMargins(dp(6), 0, 0, 0) })
+        bar.addView(button("Go", 13f) { loadAddress() },
+            LinearLayout.LayoutParams(WRAP_CONTENT, dp(46)).apply { setMargins(dp(6), 0, 0, 0) })
+        root.addView(bar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(8) })
 
-        // Toolbar
-        val tools = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        fun slot() = LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(dp(2), 0, dp(2), 0) }
-        tools.addView(button("Back") { if (web.canGoBack()) web.goBack() }, slot())
-        tools.addView(button("Fwd") { if (web.canGoForward()) web.goForward() }, slot())
-        tools.addView(button("Reload") { web.reload() }, slot())
-        desktopBtn = button("Desktop: OFF") { toggleDesktop() }
-        tools.addView(desktopBtn, slot())
-        tools.addView(button("Home") { web.loadUrl(homeUrl) }, slot())
-        root.addView(tools, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(6) })
-
-        // WebView
-        web = WebView(this).apply { setBackgroundColor(Color.BLACK) }
-        web.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            mediaPlaybackRequiresUserGesture = false
+        // Tab strip + new tab
+        val tabRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        mobileUa = web.settings.userAgentString ?: ""
+        tabBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(tabBar)
+        }
+        tabRow.addView(scroll, LinearLayout.LayoutParams(0, dp(38), 1f))
+        tabRow.addView(button("+", 18f) { newTab(homeUrl) },
+            LinearLayout.LayoutParams(dp(42), dp(38)).apply { setMargins(dp(6), 0, 0, 0) })
+        root.addView(tabRow, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(8) })
 
-        web.webChromeClient = object : WebChromeClient() {
+        // Page area
+        container = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        root.addView(container, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
+
+        // Bottom toolbar
+        val tools = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        fun slot() = LinearLayout.LayoutParams(0, dp(42), 1f).apply { setMargins(dp(3), 0, dp(3), 0) }
+        tools.addView(button("Back") { if (currentWeb().canGoBack()) currentWeb().goBack() }, slot())
+        tools.addView(button("Fwd") { if (currentWeb().canGoForward()) currentWeb().goForward() }, slot())
+        tools.addView(button("Reload") { currentWeb().reload() }, slot())
+        tools.addView(button("Saved") { showBookmarks() }, slot())
+        tools.addView(button("Home") { currentWeb().loadUrl(homeUrl) }, slot())
+        root.addView(tools, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        setContentView(root)
+        newTab(homeUrl)
+    }
+
+    private fun currentWeb(): WebView = tabs[current]
+
+    private fun makeWebView(): WebView = WebView(this).apply {
+        setBackgroundColor(Color.BLACK)
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+
+        webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) {
                 val needed = mutableListOf<String>()
                 if (request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE) &&
@@ -119,54 +150,162 @@ class MainActivity : ComponentActivity() {
                     permissionLauncher.launch(needed.toTypedArray())
                 }
             }
+
+            override fun onReceivedTitle(view: WebView?, title: String?) {
+                refreshTabBar()
+            }
         }
 
-        web.webViewClient = object : WebViewClient() {
+        webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val scheme = request?.url?.scheme ?: return true
                 return scheme != "https" && scheme != "http"
             }
 
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (view === currentWeb()) setAddress(url)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                if (url != null) address.setText(url)
+                if (view === currentWeb()) {
+                    setAddress(url)
+                    updateStar()
+                }
+                refreshTabBar()
             }
         }
-
-        root.addView(web, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
-        setContentView(root)
-        web.loadUrl(homeUrl)
     }
 
-    private fun button(label: String, onClick: () -> Unit): Button =
-        Button(this).apply {
-            text = label
-            isAllCaps = false
-            textSize = 12f
-            setTextColor(Color.rgb(0, 230, 118))
-            setBackgroundColor(Color.rgb(20, 28, 24))
-            setOnClickListener { onClick() }
-        }
+    private fun newTab(url: String) {
+        val w = makeWebView()
+        tabs.add(w)
+        switchTo(tabs.size - 1)
+        w.loadUrl(url)
+    }
 
-    private fun toggleDesktop() {
-        desktopMode = !desktopMode
-        web.settings.userAgentString = if (desktopMode) desktopUa else mobileUa
-        web.settings.useWideViewPort = desktopMode
-        web.settings.loadWithOverviewMode = desktopMode
-        desktopBtn.text = if (desktopMode) "Desktop: ON" else "Desktop: OFF"
-        web.reload()
+    private fun switchTo(index: Int) {
+        current = index
+        container.removeAllViews()
+        container.addView(currentWeb(), FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        setAddress(currentWeb().url)
+        refreshTabBar()
+        updateStar()
+    }
+
+    private fun closeTab(index: Int) {
+        if (tabs.size == 1) {
+            Toast.makeText(this, "Last tab-ah close panna mudiyaadhu", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val w = tabs.removeAt(index)
+        w.destroy()
+        val next = when {
+            current >= tabs.size -> tabs.size - 1
+            index < current -> current - 1
+            else -> current
+        }
+        switchTo(next)
+    }
+
+    private fun refreshTabBar() {
+        if (!::tabBar.isInitialized) return
+        tabBar.removeAllViews()
+        tabs.forEachIndexed { i, w ->
+            val title = w.title?.takeIf { it.isNotBlank() } ?: "New tab"
+            val label = if (title.length > 16) title.take(16) + "…" else title
+            val btn = Button(this).apply {
+                text = label
+                isAllCaps = false
+                textSize = 12f
+                setTextColor(if (i == current) accent else textMuted)
+                background = getDrawable(if (i == current) R.drawable.bg_button_active else R.drawable.bg_button)
+                setOnClickListener { switchTo(i) }
+                setOnLongClickListener { closeTab(i); true }
+            }
+            tabBar.addView(btn, LinearLayout.LayoutParams(WRAP_CONTENT, dp(36)).apply {
+                setMargins(0, 0, dp(6), 0)
+            })
+        }
+    }
+
+    private fun setAddress(url: String?) {
+        if (!address.hasFocus()) address.setText(url ?: "")
     }
 
     private fun loadAddress() {
         var value = address.text.toString().trim()
         if (value.isEmpty()) return
         if (!value.startsWith("https://") && !value.startsWith("http://")) value = "https://$value"
-        web.loadUrl(value)
+        currentWeb().loadUrl(value)
     }
+
+    // Saved pages are stored as "url\ttitle" strings in SharedPreferences
+    private fun bmSet(): MutableSet<String> =
+        HashSet(prefs.getStringSet("bookmarks", emptySet()) ?: emptySet())
+
+    private fun toggleBookmark() {
+        val url = currentWeb().url ?: return
+        val title = currentWeb().title?.takeIf { it.isNotBlank() } ?: url
+        val set = bmSet()
+        val existing = set.firstOrNull { it.substringBefore('\t') == url }
+        if (existing != null) {
+            set.remove(existing)
+            Toast.makeText(this, "Removed from saved", Toast.LENGTH_SHORT).show()
+        } else {
+            set.add("$url\t$title")
+            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+        }
+        prefs.edit().putStringSet("bookmarks", set).apply()
+        updateStar()
+    }
+
+    private fun updateStar() {
+        if (!::starBtn.isInitialized) return
+        val url = currentWeb().url
+        val marked = url != null && bmSet().any { it.substringBefore('\t') == url }
+        starBtn.text = if (marked) "★" else "☆"
+        starBtn.setTextColor(if (marked) accent else textMuted)
+    }
+
+    private fun showBookmarks() {
+        val items = bmSet().map { it.split('\t') }
+        if (items.isEmpty()) {
+            Toast.makeText(this, "Saved pages illa", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Saved pages")
+            .setItems(items.map { it.getOrElse(1) { it[0] } }.toTypedArray()) { _, which ->
+                currentWeb().loadUrl(items[which][0])
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun button(label: String, size: Float = 12f, onClick: () -> Unit): Button =
+        Button(this).apply {
+            text = label
+            isAllCaps = false
+            textSize = size
+            setTextColor(accent)
+            background = getDrawable(R.drawable.bg_button)
+            setOnClickListener { onClick() }
+        }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     override fun onBackPressed() {
-        if (::web.isInitialized && web.canGoBack()) web.goBack() else super.onBackPressed()
+        if (::container.isInitialized && tabs.isNotEmpty() && currentWeb().canGoBack()) {
+            currentWeb().goBack()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+    override fun onDestroy() {
+        tabs.forEach { it.destroy() }
+        super.onDestroy()
     }
 }
