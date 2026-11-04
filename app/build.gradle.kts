@@ -7,6 +7,11 @@ android {
     namespace = "com.alpha.browser"
     compileSdk = 35
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     defaultConfig {
         applicationId = "com.alpha.browser"
         minSdk = 26
@@ -14,6 +19,10 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {
