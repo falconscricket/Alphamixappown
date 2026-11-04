@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
     private var pendingRequest: PermissionRequest? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
-    private lateinit var progress: ProgressBar
+    private lateinit var pageBar: ProgressBar
     private lateinit var desktopBtn: Button
 
     // Extension zip picker
@@ -117,12 +117,12 @@ class MainActivity : ComponentActivity() {
         bar.addView(button("Go", 13f) { loadAddress() },
             LinearLayout.LayoutParams(WRAP_CONTENT, dp(46)).apply { setMargins(dp(6), 0, 0, 0) })
         root.addView(bar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(4) })
-        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+        pageBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progressTintList = android.content.res.ColorStateList.valueOf(accent)
             visibility = android.view.View.INVISIBLE
         }
-        root.addView(progress, LinearLayout.LayoutParams(MATCH_PARENT, dp(3)).apply { bottomMargin = dp(4) })
+        root.addView(pageBar, LinearLayout.LayoutParams(MATCH_PARENT, dp(3)).apply { bottomMargin = dp(4) })
 
         // Tab strip + new tab
         val tabRow = LinearLayout(this).apply {
@@ -219,8 +219,8 @@ class MainActivity : ComponentActivity() {
 
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 if (view !== currentWeb()) return
-                progress.progress = newProgress
-                progress.visibility = if (newProgress < 100) android.view.View.VISIBLE else android.view.View.INVISIBLE
+                this@MainActivity.pageBar.progress = newProgress
+                this@MainActivity.pageBar.visibility = if (newProgress < 100) android.view.View.VISIBLE else android.view.View.INVISIBLE
             }
 
             override fun onShowFileChooser(
