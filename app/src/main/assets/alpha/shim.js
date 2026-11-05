@@ -154,4 +154,14 @@
     } catch (_) {}
     return origAppend.call(this, node);
   };
+
+  // Desktop layout: lay the page out ~1000px wide (pinch to zoom).
+  function fixViewport() {
+    try {
+      let m = document.querySelector("meta[name=viewport]");
+      if (!m) { m = document.createElement("meta"); m.name = "viewport"; (document.head || document.documentElement).appendChild(m); }
+      m.content = "width=1000, minimum-scale=0.2, maximum-scale=5, user-scalable=yes";
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fixViewport); else fixViewport();
 })();

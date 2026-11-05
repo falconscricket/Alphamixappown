@@ -92,11 +92,16 @@ public class MainActivity extends Activity {
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-        // Look like normal Chrome for Android (remove the WebView markers).
-        String ua = WebSettings.getDefaultUserAgent(this)
-                .replace("; wv", "")
-                .replace("Version/4.0 ", "");
-        s.setUserAgentString(ua);
+        // Desktop site: identify as desktop Chrome so WhatsApp Web serves its full desktop layout (with call buttons).
+        String def = WebSettings.getDefaultUserAgent(this);
+        String chromeVer = "130.0.0.0";
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("Chrome/([0-9.]+)").matcher(def);
+        if (m.find()) chromeVer = m.group(1);
+        s.setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
+                + chromeVer + " Safari/537.36");
+        s.setSupportZoom(true);
+        s.setBuiltInZoomControls(true);
+        s.setDisplayZoomControls(false);
 
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
