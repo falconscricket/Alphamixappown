@@ -169,6 +169,16 @@
     }
   } catch (_) {}
 
+  // EXPERIMENT: WebView cannot be cross-origin isolated, so SharedArrayBuffer is missing and WhatsApp may disable calling.
+  // A stand-in lets the feature check pass (it is NOT truly shared memory), and storage.persist() is answered "yes".
+  try {
+    if (typeof window.SharedArrayBuffer === "undefined") window.SharedArrayBuffer = ArrayBuffer;
+    if (navigator.storage) {
+      navigator.storage.persist = function () { return Promise.resolve(true); };
+      navigator.storage.persisted = function () { return Promise.resolve(true); };
+    }
+  } catch (_) {}
+
   // ------------------------------------------------------------ diagnostics (the "diag" button in the app)
   const errLog = [];
   function pushErr(t) { errLog.push(String(t).slice(0, 160)); if (errLog.length > 15) errLog.shift(); }
