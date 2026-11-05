@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'com.alpha.wag'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.alpha.wag"
