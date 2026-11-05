@@ -3,15 +3,16 @@ plugins {
 }
 
 android {
-    namespace 'com.alpha.wa'
+    namespace 'com.alpha.wag'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.alpha.wa"
-        minSdk 24
+        applicationId "com.alpha.wag"
+        minSdk 26
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        ndk { abiFilters 'arm64-v8a' }
     }
 
     buildTypes {
@@ -27,5 +28,6 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.webkit:webkit:1.11.0'
+    // Firefox's engine (GeckoView). "latest.release" = newest published build.
+    implementation 'org.mozilla.geckoview:geckoview:latest.release'
 }
