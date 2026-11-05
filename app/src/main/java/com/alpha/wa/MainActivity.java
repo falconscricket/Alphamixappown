@@ -8,6 +8,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.FrameLayout;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -23,6 +27,7 @@ import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -79,7 +84,22 @@ public class MainActivity extends Activity {
         }
 
         web = new WebView(this);
-        setContentView(web);
+        FrameLayout root = new FrameLayout(this);
+        root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        Button diag = new Button(this);
+        diag.setText("diag");
+        diag.setTextSize(9);
+        diag.setAlpha(0.6f);
+        root.addView(diag, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START));
+        setContentView(root);
+        diag.setOnClickListener(v -> web.evaluateJavascript(
+                "(function(){try{return window.__alphaDiag()}catch(e){return 'diag error '+e}})()",
+                value -> {
+                    String t;
+                    try { t = String.valueOf(new JSONTokener(value).nextValue()); } catch (Exception e) { t = String.valueOf(value); }
+                    new android.app.AlertDialog.Builder(MainActivity.this).setMessage(t).setPositiveButton("OK", null).show();
+                }));
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);

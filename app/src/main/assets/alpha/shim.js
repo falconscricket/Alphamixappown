@@ -155,6 +155,40 @@
     return origAppend.call(this, node);
   };
 
+  // ------------------------------------------------------------ diagnostics (the "diag" button in the app)
+  const errLog = [];
+  function pushErr(t) { errLog.push(String(t).slice(0, 160)); if (errLog.length > 15) errLog.shift(); }
+  window.addEventListener("error", (e) => pushErr("err: " + e.message));
+  window.addEventListener("unhandledrejection", (e) => pushErr("rej: " + (e.reason && (e.reason.message || e.reason))));
+  const oce = console.error;
+  console.error = function () { try { pushErr("console: " + [].slice.call(arguments).join(" ")); } catch (_) {} return oce.apply(console, arguments); };
+  window.__alphaDiag = function () {
+    const L = [];
+    L.push("UA: " + navigator.userAgent);
+    L.push("size: " + innerWidth + "x" + innerHeight + " dpr " + devicePixelRatio + " touch " + navigator.maxTouchPoints);
+    const f = {
+      RTCPeerConnection: typeof RTCPeerConnection, getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      AudioWorklet: typeof AudioWorklet, SharedArrayBuffer: typeof SharedArrayBuffer, crossOriginIsolated: window.crossOriginIsolated,
+      WebAssembly: typeof WebAssembly, RTCRtpScriptTransform: typeof RTCRtpScriptTransform,
+      encodedStreams: !!(window.RTCRtpSender && RTCRtpSender.prototype.createEncodedStreams), Notification: typeof Notification,
+      MediaRecorder: typeof MediaRecorder, secure: window.isSecureContext
+    };
+    L.push("features: " + JSON.stringify(f));
+    try {
+      const els = document.querySelectorAll('[aria-label*="call" i],[data-icon*="call" i],[title*="call" i],[data-icon*="phone" i],[data-icon*="video" i]');
+      L.push("call elements: " + els.length);
+      [].slice.call(els, 0, 6).forEach((e) => {
+        const r = e.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const top = document.elementFromPoint(cx, cy);
+        const cs = getComputedStyle(e);
+        L.push("- " + e.tagName + " [" + (e.getAttribute("aria-label") || e.getAttribute("data-icon") || e.title) + "] rect " + Math.round(r.left) + "," + Math.round(r.top) + " " + Math.round(r.width) + "x" + Math.round(r.height) +
+          " disabled=" + (e.getAttribute("aria-disabled") || e.disabled) + " pe=" + cs.pointerEvents + " top=" + (top ? top.tagName + "." + String(top.className).slice(0, 30) + "[" + (top.getAttribute("aria-label") || "") + "]" : "none") + (top === e || (top && e.contains(top)) ? " (same)" : " (COVERED)"));
+      });
+    } catch (e) { L.push("probe error " + e); }
+    L.push("errors: " + (errLog.length ? "\n" + errLog.join("\n") : "none"));
+    return L.join("\n");
+  };
+
   // Desktop layout: lay the page out ~1000px wide (pinch to zoom).
   function fixViewport() {
     try {
