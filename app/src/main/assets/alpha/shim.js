@@ -155,6 +155,20 @@
     return origAppend.call(this, node);
   };
 
+  // WebView has no Notification API (Chrome does). WhatsApp's calling check needs it, so provide a quiet stand-in.
+  try {
+    if (typeof window.Notification === "undefined") {
+      class AlphaNotification extends EventTarget {
+        constructor(title, opts) { super(); this.title = title; Object.assign(this, opts || {}); }
+        close() {}
+        static get permission() { return "granted"; }
+        static get maxActions() { return 2; }
+        static requestPermission(cb) { if (typeof cb === "function") cb("granted"); return Promise.resolve("granted"); }
+      }
+      window.Notification = AlphaNotification;
+    }
+  } catch (_) {}
+
   // ------------------------------------------------------------ diagnostics (the "diag" button in the app)
   const errLog = [];
   function pushErr(t) { errLog.push(String(t).slice(0, 160)); if (errLog.length > 15) errLog.shift(); }
@@ -171,7 +185,9 @@
       AudioWorklet: typeof AudioWorklet, SharedArrayBuffer: typeof SharedArrayBuffer, crossOriginIsolated: window.crossOriginIsolated,
       WebAssembly: typeof WebAssembly, RTCRtpScriptTransform: typeof RTCRtpScriptTransform,
       encodedStreams: !!(window.RTCRtpSender && RTCRtpSender.prototype.createEncodedStreams), Notification: typeof Notification,
-      MediaRecorder: typeof MediaRecorder, secure: window.isSecureContext
+      MediaRecorder: typeof MediaRecorder, secure: window.isSecureContext,
+      OffscreenCanvas: typeof OffscreenCanvas, VideoEncoder: typeof VideoEncoder, VideoDecoder: typeof VideoDecoder, AudioDecoder: typeof AudioDecoder,
+      TrackProcessor: typeof MediaStreamTrackProcessor, serviceWorker: !!navigator.serviceWorker, wakeLock: !!navigator.wakeLock, permissions: !!navigator.permissions
     };
     L.push("features: " + JSON.stringify(f));
     try {
